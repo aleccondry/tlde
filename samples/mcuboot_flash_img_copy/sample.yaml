@@ -1,0 +1,19 @@
+sample:
+  name: mcuboot_flash_img_copy 
+tests:
+  sample.mcuboot_flash_img_copy:
+    sysbuild: true
+    build_only: true
+    platform_allow:
+      - esp32c3_devkitm
+      - esp32s3_devkitm/esp32s3/procpu
+      - rpi_pico/rp2040/w
+      - bbc_microbit_v2
+      - qemu_cortex_m0
+    integration_platforms:
+      - esp32c3_devkitm
+      - esp32s3_devkitm/esp32s3/procpu
+      - rpi_pico/rp2040/w
+      - bbc_microbit_v2
+      - qemu_cortex_m0
+    tags: ci_build
