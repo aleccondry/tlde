@@ -1,0 +1,11 @@
+name: emu
+base: ubuntu@24.04
+sdks:
+  - name: uv
+    channel: latest/stable
+
+  - name: project-emulation
+
+connections:
+  - plug: emulation:venv
+    slot: uv:venv

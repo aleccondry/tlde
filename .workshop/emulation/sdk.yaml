@@ -1,0 +1,5 @@
+name: emulation
+plugs:
+  venv:
+    interface: mount
+    workshop-target: /home/workshop/venv
