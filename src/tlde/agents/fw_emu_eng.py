@@ -21,6 +21,16 @@ PDF_READER_MCP = {
 
 
 class FwEmuEng(AgentConfig):
+    # Board-agnostic skills: .repl generation, C# peripheral model generation,
+    # and advanced peripheral type patterns. Board-specific skills (e.g.
+    # microbit-v2-platform-context) should be added by the caller:
+    #   FwEmuEng(skills=[*FwEmuEng.BASE_SKILLS, "microbit-v2-platform-context"])
+    BASE_SKILLS = [
+        "renode-repl-generation",
+        "renode-peripheral-model-generation",
+        "renode-peripheral-model-patterns",
+    ]
+
     def __init__(self, **overrides):
         defaults = dict(
             name="fw_emu_eng",
@@ -31,6 +41,7 @@ class FwEmuEng(AgentConfig):
                 "summaries. Accepts verification feedback to iteratively refine emulation."
             ),
             mcp_servers=PDF_READER_MCP,
+            skills=self.BASE_SKILLS,
         )
         defaults.update(overrides)
         super().__init__(**defaults)
