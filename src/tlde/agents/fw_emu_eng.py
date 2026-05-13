@@ -29,6 +29,8 @@ class FwEmuEng(AgentConfig):
         "renode-repl-generation",
         "renode-peripheral-model-generation",
         "renode-peripheral-model-patterns",
+        "mcuboot-emulation",
+        "zephyr-dts-analysis",
     ]
 
     def __init__(self, **overrides):

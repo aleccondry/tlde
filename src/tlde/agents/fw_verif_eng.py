@@ -20,7 +20,13 @@ class FirmwareVerificationEngineer(AgentConfig):
                 "Treats the .repl as untrusted input and cross-checks every "
                 "peripheral against the reference manual."
             ),
-            skills=["renode-resc-generation", "renode-feedback-schema"],
+            skills=[
+                "renode-resc-generation",
+                "renode-feedback-schema",
+                "mcuboot-emulation",
+                "renode-debugging",
+                "zephyr-dts-analysis",
+            ],
             tools=["read_file", "write_file", "search_files"],
         )
         defaults.update(overrides)
