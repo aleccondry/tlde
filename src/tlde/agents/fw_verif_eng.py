@@ -20,7 +20,7 @@ class FirmwareVerificationEngineer(AgentConfig):
                 "Treats the .repl as untrusted input and cross-checks every "
                 "peripheral against the reference manual."
             ),
-            skills=["renode"],
+            skills=["renode-resc-generation", "renode-feedback-schema"],
             tools=["read_file", "write_file", "search_files"],
         )
         defaults.update(overrides)
