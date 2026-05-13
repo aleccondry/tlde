@@ -82,10 +82,12 @@ async def run_agent(
             Use ``_test_permission_handler`` for agents that need to run
             builds and test commands.
 
-    Returns:
+Returns:
         The agent's final text response.
     """
     handler = permission_handler or _permission_handler
+    provider = config.get_provider_dict()
+
     async with CopilotClient() as client:
         async with await client.create_session(
             on_permission_request=handler,
@@ -94,6 +96,7 @@ async def run_agent(
             skill_directories=["~/.copilot/skills"],
             custom_agents=[_agent_dict(config)],
             agent=config.name,
+            provider=provider,
         ) as session:
             observer = SessionObserver(config.name)
             observer.attach(session)
@@ -130,10 +133,12 @@ async def run_agent_interactive(
             Use ``_test_permission_handler`` for agents that need to run
             builds and test commands.
 
-    Returns:
+Returns:
         The agent's final accepted response.
     """
     handler = permission_handler or _permission_handler
+    provider = config.get_provider_dict()
+
     async with CopilotClient() as client:
         async with await client.create_session(
             on_permission_request=handler,
@@ -142,6 +147,7 @@ async def run_agent_interactive(
             skill_directories=["~/.copilot/skills"],
             custom_agents=[_agent_dict(config)],
             agent=config.name,
+            provider=provider,
         ) as session:
             observer = SessionObserver(config.name)
             observer.attach(session)

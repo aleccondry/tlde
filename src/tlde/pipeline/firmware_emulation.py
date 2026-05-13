@@ -11,6 +11,7 @@ Runs the full emulation workflow:
 
 import asyncio
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -20,6 +21,10 @@ from tlde.agents import AGENTS
 from tlde.observability import PipelineTrace
 
 MAX_VERIFY_RETRIES = 3
+
+
+def _model_override():
+    return os.environ.get("TLDE_MODEL")
 
 
 @dataclass
@@ -79,7 +84,10 @@ async def phase_manager(
     user_prompt: str, trace: PipelineTrace,
 ) -> dict:
     """Manager reads PDF specs and produces a structured work plan."""
-    manager = AGENTS["firmware_emulation_manager"]()
+    model = _model_override()
+    manager = AGENTS["firmware_emulation_manager"](
+        **({"model": model} if model else {}),
+    )
     print(f"[Phase 1: Manager] Running {manager.name} (model: {manager.model})")
     print(f"[Phase 1: Manager] Prompt: {user_prompt}")
     print("-" * 60)
@@ -174,6 +182,7 @@ async def phase_engineer_verifier(
 
             engineer = AGENTS["fw_emu_eng"](
                 name=f"engineer-{name}-attempt{attempt}",
+                **({"model": _model_override()} if _model_override() else {}),
             )
             engineer_response = await run_agent(
                 engineer, eng_prompt, pipeline_trace=trace,
@@ -184,6 +193,7 @@ async def phase_engineer_verifier(
             print(f"[Phase 2: Verifier] {name} (attempt {attempt}/{MAX_VERIFY_RETRIES})")
             verifier = AGENTS["fw_verif_eng"](
                 name=f"verifier-{name}-attempt{attempt}",
+                **({"model": _model_override()} if _model_override() else {}),
             )
             ver_prompt = build_unit_verifier_prompt(unit, board, user_prompt)
             verifier_response = await run_agent(
@@ -235,7 +245,9 @@ async def phase_testing(
     print(f"\n[Phase 3: Testing] Building and testing emulation for {board}")
     print("-" * 60)
 
-    tester = AGENTS["emu_test_agg"]()
+    tester = AGENTS["emu_test_agg"](
+        **({"model": _model_override()} if _model_override() else {}),
+    )
     prompt = build_tester_prompt(board)
     response = await run_agent(tester, prompt, pipeline_trace=trace)
 

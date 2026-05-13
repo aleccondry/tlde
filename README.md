@@ -102,6 +102,35 @@ All outputs land in `output/<board>/` (the board name is extracted by the manage
 
 ---
 
+## Providers
+
+tlde uses the GitHub Copilot SDK. To use other LLM providers (BYOK), set `TLDE_PROVIDER`:
+
+```bash
+# OpenRouter
+export OPENROUTER_API_KEY="sk-or-..."
+TLDE_PROVIDER=openrouter tlde "Emulate the nRF52833 using ./docs/spec.pdf"
+
+# Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+TLDE_PROVIDER=anthropic tlde "Emulate the nRF52833 using ./docs/spec.pdf"
+
+# OpenAI / Azure / Ollama
+TLDE_PROVIDER=openai tlde "..."
+TLDE_PROVIDER=azure tlde "..."
+TLDE_PROVIDER=ollama tlde "..."
+```
+
+To override the model (default depends on agent):
+
+```bash
+TLDE_MODEL=z-ai/glm-5 TLDE_PROVIDER=openrouter tlde "Emulate the nRF52833..."
+```
+
+See `.env.example` for all environment variables. Agent models map to provider-specific equivalents automatically. Default is `github` (Copilot subscription, no key needed).
+
+---
+
 ## Project structure
 
 ```
@@ -116,6 +145,7 @@ tlde/
 │   │   └── emu_test_agg.py
 │   ├── agent.py                    # Copilot SDK session factory + permission handler
 │   ├── config.py                   # AgentConfig dataclass + AGENTS registry
+│   ├── providers.py                # BYOK provider configurations
 │   └── observability.py            # PipelineTrace / SessionObserver
 ├── prompts/                        # System prompt .txt files (one per agent)
 ├── docs/
@@ -125,7 +155,8 @@ tlde/
 │   ├── hello/
 │   ├── flash_rw/
 │   └── mcuboot_flash_img_copy/
-└── specs/                          # Input PDFs (per board)
+├── specs/                          # Input PDFs (per board)
+└── .env.example                    # API key configuration template
 ```
 
 ---
