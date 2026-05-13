@@ -12,6 +12,7 @@ class EmuTestAgg(AgentConfig):
     def __init__(self, **overrides):
         defaults = dict(
             name="emu_test_agg",
+            agent_type="emu_test_agg",
             description=(
                 "Builds sample firmware, writes Robot Framework test suites, "
                 "runs them in Renode against the generated .repl and peripheral "

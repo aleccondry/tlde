@@ -36,6 +36,7 @@ class FwEmuEng(AgentConfig):
     def __init__(self, **overrides):
         defaults = dict(
             name="fw_emu_eng",
+            agent_type="fw_emu_eng",
             model="claude-sonnet-4.6",
             description=(
                 "Firmware emulation engineer that produces Renode .repl platform "

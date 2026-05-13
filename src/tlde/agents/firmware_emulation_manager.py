@@ -5,6 +5,7 @@ class FirmwareEmulationManager(AgentConfig):
     def __init__(self, **overrides):
         defaults = dict(
             name="firmware_emulation_manager",
+            agent_type="firmware_emulation_manager",
             model="claude-opus-4.6",
             description=(
                 "Reads microcontroller PDF specs and decomposes the Renode "
