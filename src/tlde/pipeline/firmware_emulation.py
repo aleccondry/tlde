@@ -37,21 +37,21 @@ class WorkUnitResult:
 
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: python -m tlde.pipeline.firmware_emulation <pdf_path> [pdf_path ...]")
-        print("\nProvide one or more PDF spec documents for the target MCU.")
+        print("Usage: tlde <prompt>")
+        print('\nExample: tlde "Emulate the nRF52833 using the specs in ./docs/"')
         sys.exit(1)
 
-    pdf_paths = sys.argv[1:]
+    user_prompt = " ".join(sys.argv[1:])
     trace = PipelineTrace()
 
     # --- Phase 1: Manager decomposes the work ---
-    work_plan = await phase_manager(pdf_paths, trace)
+    work_plan = await phase_manager(user_prompt, trace)
     target = work_plan["target"]
     work_units = work_plan["work_units"]
     board = target["board"]
 
     # --- Phase 2: Engineer–Verifier loops (parallel where deps allow) ---
-    results = await phase_engineer_verifier(target, work_units, pdf_paths, trace)
+    results = await phase_engineer_verifier(target, work_units, user_prompt, trace)
 
     # --- Phase 3: Test aggregator builds + runs Robot Framework tests ---
     test_report = await phase_testing(board, trace)
@@ -76,15 +76,15 @@ async def main():
 # ---------------------------------------------------------------------------
 
 async def phase_manager(
-    pdf_paths: list[str], trace: PipelineTrace,
+    user_prompt: str, trace: PipelineTrace,
 ) -> dict:
     """Manager reads PDF specs and produces a structured work plan."""
     manager = AGENTS["firmware_emulation_manager"]()
     print(f"[Phase 1: Manager] Running {manager.name} (model: {manager.model})")
-    print(f"[Phase 1: Manager] PDF specs: {pdf_paths}")
+    print(f"[Phase 1: Manager] Prompt: {user_prompt}")
     print("-" * 60)
 
-    prompt = build_manager_prompt(pdf_paths)
+    prompt = build_manager_prompt(user_prompt)
     response = await run_agent(manager, prompt, pipeline_trace=trace)
 
     work_plan = parse_work_plan(response)
@@ -108,7 +108,7 @@ async def phase_manager(
 async def phase_engineer_verifier(
     target: dict,
     work_units: list[dict],
-    pdf_paths: list[str],
+    user_prompt: str,
     trace: PipelineTrace,
 ) -> dict[str, WorkUnitResult]:
     """Run engineer–verifier pairs, parallelizing independent work units.
@@ -182,7 +182,7 @@ async def phase_engineer_verifier(
             verifier = AGENTS["fw_verif_eng"](
                 name=f"verifier-{name}-attempt{attempt}",
             )
-            ver_prompt = build_unit_verifier_prompt(unit, board, pdf_paths)
+            ver_prompt = build_unit_verifier_prompt(unit, board, user_prompt)
             verifier_response = await run_agent(
                 verifier, ver_prompt, pipeline_trace=trace,
             )
@@ -308,16 +308,13 @@ def _extract_json(text: str) -> dict | None:
 # Prompt builders
 # ---------------------------------------------------------------------------
 
-def build_manager_prompt(pdf_paths: list[str]) -> str:
+def build_manager_prompt(user_prompt: str) -> str:
     """Build the user prompt for the manager agent."""
-    paths_list = "\n".join(f"- {p}" for p in pdf_paths)
     return (
-        f"Please analyze the following microcontroller specification documents "
-        f"and produce an emulation work plan:\n\n"
-        f"PDF documents:\n{paths_list}\n\n"
-        f"Read each document to identify the target MCU, its peripherals, memory map, "
-        f"and bus architecture. Then decompose the emulation into work units as "
-        f"described in your instructions."
+        f"{user_prompt}\n\n"
+        f"Read the specification documents to identify the target MCU, its "
+        f"peripherals, memory map, and bus architecture. Then decompose the "
+        f"emulation into work units as described in your instructions."
     )
 
 
@@ -411,17 +408,16 @@ def build_engineer_revision_prompt(
 def build_unit_verifier_prompt(
     unit: dict,
     board: str,
-    pdf_paths: list[str],
+    user_prompt: str,
 ) -> str:
     """Build the prompt for a verifier checking a single work unit."""
-    pdf_list = "\n".join(f"- {p}" for p in pdf_paths)
     return (
         f"Verify the emulation artifacts for work unit `{unit['name']}` "
         f"on board `{board}`.\n\n"
+        f"## Original request\n{user_prompt}\n\n"
         f"## Artifacts to verify\n"
         f"- Platform description: `output/{board}/*.repl` (entries related to {unit['name']})\n"
         f"- Custom peripherals: `output/{board}/*.cs` (related to {unit['name']})\n\n"
-        f"## Reference documents (PDFs)\n{pdf_list}\n\n"
         f"## Your tasks\n"
         f"1. Read the artifacts produced for this work unit from `output/{board}/`.\n"
         f"2. For every peripheral in this unit, cross-check its base address, size, "
@@ -505,5 +501,10 @@ def _validate_plan(plan: dict) -> dict:
     return plan
 
 
-if __name__ == "__main__":
+def _cli():
+    """CLI entry point for `tlde` command."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    _cli()
