@@ -14,10 +14,12 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
-from tlde.agent import run_agent, _approve_all_handler
+from tlde.agent import run_agent, run_agent_interactive, _approve_all_handler
 from tlde.agents import AGENTS
 from tlde.observability import PipelineTrace
+from tlde.rag import KnowledgeBase
 
 MAX_VERIFY_RETRIES = 3
 
@@ -37,21 +39,80 @@ class WorkUnitResult:
 
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: tlde <prompt>")
-        print('\nExample: tlde "Emulate the nRF52833 using the specs in ./docs/"')
+        print("Usage: tlde <prompt> [--source URL_OR_PATH ...] [--plan work_plan.json]")
+        print('\nExample: tlde "Emulate the nRF52833" --source https://example.com/spec.pdf')
+        print('Resume:  tlde "Emulate the nRF52833" --plan output/work_plan.json')
         sys.exit(1)
 
-    user_prompt = " ".join(sys.argv[1:])
+    # Parse args: everything before --source/--plan is the prompt, rest are flags
+    args = sys.argv[1:]
+    prompt_parts = []
+    sources = []
+    plan_file = None
+    parsing_sources = False
+    for arg in args:
+        if arg == "--source":
+            parsing_sources = True
+        elif arg == "--plan":
+            # Next arg is the plan JSON path
+            parsing_sources = False
+            plan_file = "@@NEXT@@"
+        elif plan_file == "@@NEXT@@":
+            plan_file = arg
+        elif parsing_sources:
+            sources.append(arg)
+        else:
+            prompt_parts.append(arg)
+
+    user_prompt = " ".join(prompt_parts)
+    if not user_prompt and not plan_file:
+        print("Error: no prompt provided.")
+        sys.exit(1)
+
     trace = PipelineTrace()
 
-    # --- Phase 1: Manager decomposes the work ---
-    work_plan = await phase_manager(user_prompt, trace)
+    # --- Phase 0: Ingest sources into the knowledge base ---
+    kb = KnowledgeBase()
+
+    # Auto-extract URLs from the prompt as sources
+    urls_in_prompt = re.findall(r'https?://[^\s"\'<>]+', user_prompt)
+    all_sources = list(dict.fromkeys(sources + urls_in_prompt))  # deduplicate
+
+    if all_sources:
+        print("[Phase 0: Ingest] Loading reference documents into knowledge base")
+        print("-" * 60)
+        for src in all_sources:
+            print(f"  Ingesting: {src}")
+            try:
+                n = await kb.ingest_source(src)
+                print(f"    → {n} chunks indexed")
+            except Exception as e:
+                print(f"    → ERROR: {e}")
+        print(f"[Phase 0: Ingest] Knowledge base ready ({kb.chunk_count} total chunks)")
+        print("-" * 60)
+
+    # --- Phase 1: Manager decomposes the work (or load from cache) ---
+    if plan_file:
+        plan_path = Path(plan_file)
+        if not plan_path.exists():
+            print(f"[ERROR] Plan file not found: {plan_file}")
+            sys.exit(1)
+        work_plan = json.loads(plan_path.read_text())
+        print(f"[Phase 1: Manager] Loaded cached work plan from {plan_file}")
+    else:
+        work_plan = await phase_manager(user_prompt, trace, kb)
+        # Save for reuse
+        out_dir = Path("output")
+        out_dir.mkdir(exist_ok=True)
+        plan_path = out_dir / "work_plan.json"
+        plan_path.write_text(json.dumps(work_plan, indent=2))
+        print(f"[Phase 1: Manager] Work plan saved to {plan_path}")
     target = work_plan["target"]
     work_units = work_plan["work_units"]
     board = target["board"]
 
     # --- Phase 2: Engineer–Verifier loops (parallel where deps allow) ---
-    results = await phase_engineer_verifier(target, work_units, user_prompt, trace)
+    results = await phase_engineer_verifier(target, work_units, user_prompt, trace, kb)
 
     # --- Phase 3: Test aggregator builds + runs Robot Framework tests ---
     test_report = await phase_testing(board, trace)
@@ -76,21 +137,41 @@ async def main():
 # ---------------------------------------------------------------------------
 
 async def phase_manager(
-    user_prompt: str, trace: PipelineTrace,
+    user_prompt: str, trace: PipelineTrace, kb: KnowledgeBase,
 ) -> dict:
-    """Manager reads PDF specs and produces a structured work plan."""
+    """Manager uses RAG context to produce a structured work plan."""
     manager = AGENTS["firmware_emulation_manager"]()
     print(f"[Phase 1: Manager] Running {manager.name} (model: {manager.model})")
     print(f"[Phase 1: Manager] Prompt: {user_prompt}")
     print("-" * 60)
 
-    prompt = build_manager_prompt(user_prompt)
-    response = await run_agent(
-        manager, prompt, pipeline_trace=trace,
+    prompt = build_manager_prompt(user_prompt, kb)
+    work_plan = None
+
+    def _try_parse(response: str) -> str | None:
+        nonlocal work_plan
+        try:
+            work_plan = parse_work_plan(response)
+            return None  # success — stop the loop
+        except ValueError:
+            pass
+        # Ask the agent to try again with just the JSON
+        print("[Phase 1: Manager] Response was not valid JSON, requesting retry...")
+        return (
+            "Your previous response was not valid JSON. "
+            "Please respond now with ONLY the JSON work plan object. "
+            "First character must be `{`, last must be `}`. No prose."
+        )
+
+    await run_agent_interactive(
+        manager, prompt, _try_parse,
+        pipeline_trace=trace,
         permission_handler=_approve_all_handler,
     )
 
-    work_plan = parse_work_plan(response)
+    if work_plan is None:
+        print("[ERROR] Manager failed to produce a valid JSON work plan after retries.")
+        sys.exit(1)
     target = work_plan["target"]
     work_units = work_plan["work_units"]
 
@@ -113,6 +194,7 @@ async def phase_engineer_verifier(
     work_units: list[dict],
     user_prompt: str,
     trace: PipelineTrace,
+    kb: KnowledgeBase | None = None,
 ) -> dict[str, WorkUnitResult]:
     """Run engineer–verifier pairs, parallelizing independent work units.
 
@@ -166,10 +248,10 @@ async def phase_engineer_verifier(
             # --- Engineer ---
             print(f"\n[Phase 2: Engineer] {name} (attempt {attempt}/{MAX_VERIFY_RETRIES})")
             if attempt == 1:
-                eng_prompt = build_engineer_prompt(unit, target, dep_context)
+                eng_prompt = build_engineer_prompt(unit, target, dep_context, kb)
             else:
                 eng_prompt = build_engineer_revision_prompt(
-                    unit, target, engineer_response, verifier_response,
+                    unit, target, engineer_response, verifier_response, kb,
                 )
 
             engineer = AGENTS["fw_emu_eng"](
@@ -185,7 +267,7 @@ async def phase_engineer_verifier(
             verifier = AGENTS["fw_verif_eng"](
                 name=f"verifier-{name}-attempt{attempt}",
             )
-            ver_prompt = build_unit_verifier_prompt(unit, board, user_prompt)
+            ver_prompt = build_unit_verifier_prompt(unit, board, user_prompt, kb)
             verifier_response = await run_agent(
                 verifier, ver_prompt, pipeline_trace=trace,
             )
@@ -311,13 +393,23 @@ def _extract_json(text: str) -> dict | None:
 # Prompt builders
 # ---------------------------------------------------------------------------
 
-def build_manager_prompt(user_prompt: str) -> str:
+def build_manager_prompt(user_prompt: str, kb: KnowledgeBase | None = None) -> str:
     """Build the user prompt for the manager agent."""
+    context = ""
+    if kb and kb.chunk_count > 0:
+        context = kb.format_context(
+            f"microcontroller peripherals memory map bus architecture "
+            f"CPU core interrupt controller clock tree {user_prompt}",
+            n_results=20,
+        )
+        context = f"\n\n{context}\n\n"
+
     return (
         f"{user_prompt}\n\n"
-        f"Read the specification documents to identify the target MCU, its "
+        f"Using the reference documentation below, identify the target MCU, its "
         f"peripherals, memory map, and bus architecture. Then decompose the "
         f"emulation into work units as described in your instructions."
+        f"{context}"
     )
 
 
@@ -325,6 +417,7 @@ def build_engineer_prompt(
     unit: dict,
     target: dict,
     completed: dict[str, str],
+    kb: KnowledgeBase | None = None,
 ) -> str:
     """Build a self-contained prompt for an engineer's initial attempt."""
     prompt_parts = [
@@ -373,6 +466,14 @@ def build_engineer_prompt(
                     truncated += "\n... (truncated)"
                 prompt_parts.append(truncated)
 
+    # Inject RAG context for this specific work unit
+    if kb and kb.chunk_count > 0:
+        query = f"{unit['name']} {unit['description']} {target['soc']} registers"
+        context = kb.format_context(query, n_results=8)
+        if context:
+            prompt_parts.append("")
+            prompt_parts.append(context)
+
     return "\n".join(prompt_parts)
 
 
@@ -381,8 +482,16 @@ def build_engineer_revision_prompt(
     target: dict,
     previous_engineer_output: str,
     verifier_feedback: str,
+    kb: KnowledgeBase | None = None,
 ) -> str:
     """Build a revision prompt with verifier feedback for the engineer."""
+    rag_context = ""
+    if kb and kb.chunk_count > 0:
+        query = f"{unit['name']} {unit['description']} {target['soc']} registers"
+        context = kb.format_context(query, n_results=8)
+        if context:
+            rag_context = f"\n\n{context}"
+
     return (
         f"# Revision Required: {unit['name']}\n\n"
         f"## Target\n"
@@ -394,17 +503,17 @@ def build_engineer_revision_prompt(
         f"{unit['description']}\n\n"
         f"## Your Previous Output\n"
         f"Your previous artifacts were reviewed by a verification engineer who "
-        f"cross-checked them against the vendor reference manual PDFs. "
+        f"cross-checked them against the vendor reference manual. "
         f"The verifier found mismatches that need to be corrected.\n\n"
         f"### Verifier Feedback\n"
         f"{verifier_feedback}\n\n"
         f"## Your Task\n"
         f"Read the verifier's feedback carefully. For each mismatch:\n"
-        f"1. Check the cited datasheet section to confirm the correct value.\n"
+        f"1. Check the reference documentation below to confirm the correct value.\n"
         f"2. Update your .repl and/or C# peripheral model to use the verified value.\n"
         f"3. Output complete, revised artifact files (not diffs).\n\n"
-        f"Do NOT invent values. If the verifier's citation is unclear, "
-        f"use the PDF reader to look up the section yourself."
+        f"Do NOT invent values. Use only the reference documentation provided."
+        f"{rag_context}"
     )
 
 
@@ -412,8 +521,19 @@ def build_unit_verifier_prompt(
     unit: dict,
     board: str,
     user_prompt: str,
+    kb: KnowledgeBase | None = None,
 ) -> str:
     """Build the prompt for a verifier checking a single work unit."""
+    rag_context = ""
+    if kb and kb.chunk_count > 0:
+        query = (
+            f"{unit['name']} base address size IRQ registers "
+            f"{unit.get('description', '')}"
+        )
+        context = kb.format_context(query, n_results=8)
+        if context:
+            rag_context = f"\n\n{context}"
+
     return (
         f"Verify the emulation artifacts for work unit `{unit['name']}` "
         f"on board `{board}`.\n\n"
@@ -424,12 +544,13 @@ def build_unit_verifier_prompt(
         f"## Your tasks\n"
         f"1. Read the artifacts produced for this work unit from `output/{board}/`.\n"
         f"2. For every peripheral in this unit, cross-check its base address, size, "
-        f"and IRQ number against the reference manual PDF.\n"
+        f"and IRQ number against the reference documentation below.\n"
         f"3. Produce a `verification_report.json` with per-peripheral verdicts.\n"
         f"4. If all peripherals are verified, generate a validated `.resc` snippet "
         f"for this unit.\n"
         f"5. Write any doubt-log entries for unresolvable mismatches.\n\n"
         f"Write all outputs to `output/{board}/`."
+        f"{rag_context}"
     )
 
 
@@ -494,7 +615,7 @@ def parse_work_plan(response: str) -> dict:
 
     print("[ERROR] Could not extract JSON from manager response.")
     print(f"[ERROR] Response starts with: {response[:300]}")
-    sys.exit(1)
+    raise ValueError("Manager response is not valid JSON")
 
 
 def _validate_plan(plan: dict) -> dict:

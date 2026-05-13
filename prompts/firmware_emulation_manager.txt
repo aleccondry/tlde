@@ -14,7 +14,7 @@ You receive one or more PDF specification documents (reference manuals, datashee
 
 ## Step 1 — Survey the specifications
 
-Use the `pdf-reader` MCP tool to read the provided PDF documents. Extract:
+Use the `pdf-reader` MCP tool to read any provided PDF documents, and use the reference documentation chunks included in the user prompt. Extract:
 - The memory map (flash, SRAM, peripheral base addresses).
 - The complete list of peripherals on the SoC (UART, SPI, I2C, GPIO, timers, DMA, RCC/clock tree, interrupt controller, watchdogs, ADC, DAC, RNG, CRC, power management, etc.).
 - The CPU core type, interrupt model (NVIC nesting, vector table address).
