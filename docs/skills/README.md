@@ -54,13 +54,13 @@ Need to implement register-level peripheral logic?  → Peripheral Model skill(s
 
 ## Reference Material
 
-The `reference/` directory contains the source projects these skills were derived from:
+These skills were derived from the upstream Renode sources and documentation:
 
-| Directory | Contents |
-|-----------|----------|
-| `reference/renode/` | Main Renode repository (platforms, scripts, tests) |
-| `reference/renode-docs/` | Official Renode documentation source |
-| `reference/renode-infrastructure/` | Core C# infrastructure (peripheral base classes, register framework) |
+| Resource | Contents |
+|----------|----------|
+| [Renode repository](https://github.com/renode/renode) | Main Renode repository (platforms, scripts, tests) |
+| [Renode documentation](https://renode.readthedocs.io/) | Official Renode documentation |
+| [Renode infrastructure source](https://github.com/renode/renode-infrastructure) | Core C# infrastructure (peripheral base classes, register framework) |
 
 ## Quick Reference
 
