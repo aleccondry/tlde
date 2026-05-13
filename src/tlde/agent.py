@@ -54,16 +54,16 @@ def _make_shell_handler(allow_build: bool = False):
     return handler
 
 
-# Default handler used by most agents — allows only mkdir.
-_permission_handler = _make_shell_handler(allow_build=False)
-
-# Extended handler for the test aggregator — also allows make / renode-test / west.
-_test_permission_handler = _make_shell_handler(allow_build=True)
-
-
 def _approve_all_handler(request, invocation):
     """Approve every permission request, including shell commands."""
     return PermissionRequestResult(kind="approve-once")
+
+
+# Default handler — approve everything.
+_permission_handler = _approve_all_handler
+
+# Extended handler for the test aggregator — also allows make / renode-test / west.
+_test_permission_handler = _make_shell_handler(allow_build=True)
 
 
 async def run_agent(
