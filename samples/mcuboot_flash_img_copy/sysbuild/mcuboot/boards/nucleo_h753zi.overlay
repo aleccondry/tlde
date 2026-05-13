@@ -1,0 +1,46 @@
+/ {
+    chosen {
+        zephyr,code-partition = &boot_partition;
+    };
+};
+
+&flash0 {
+    /*
+     * STM32H753ZI: 2MB flash, 16 sectors of 128KB each (dual-bank 1MB+1MB).
+     * erase-block-size: 128KB = 131072 bytes
+     * write-block-size: 32 bytes (256-bit minimum write granularity)
+     *
+     * Partition layout:
+     *   boot_partition :  1 sector  (128KB) @ 0x000000
+     *   slot0_partition:  4 sectors (512KB) @ 0x020000
+     *   slot1_partition:  4 sectors (512KB) @ 0x0A0000
+     *   storage_partition: 8 sectors (1024KB) @ 0x120000
+     */
+    erase-block-size = <131072>;
+    write-block-size = <32>;
+
+    /delete-node/ partitions;
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        boot_partition: partition@0 {
+            label = "mcuboot";
+            reg = <0x00000000 (1*128*1024)>;
+            read-only;
+        };
+        slot0_partition: partition@20000 {
+            label = "image-0";
+            reg = <0x00020000 (4*128*1024)>;
+        };
+        slot1_partition: partition@a0000 {
+            label = "image-1";
+            reg = <0x000a0000 (4*128*1024)>;
+        };
+        storage_partition: partition@120000 {
+            label = "storage";
+            reg = <0x00120000 (8*128*1024)>;
+        };
+    };
+};
