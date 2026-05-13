@@ -1,6 +1,7 @@
 """Factory for building Copilot SDK sessions from AgentConfig."""
 
 import asyncio
+import re
 from typing import Callable
 
 from copilot import CopilotClient
@@ -14,11 +15,21 @@ from copilot.session import PermissionRequestResult
 from tlde.config import AgentConfig
 from tlde.observability import PipelineTrace, SessionObserver, SessionTrace
 
+# Shell commands that are safe to allow — directory creation only.
+# Matches: mkdir [-p] [-v] <path>  with no shell metacharacters (&&, ||, ;, |, $, `)
+_ALLOWED_SHELL = re.compile(r"^\s*mkdir(\s+-[pv]+)?\s+[^;&|$`]+$")
+
 
 def _permission_handler(request, invocation):
-    """Approve all requests except shell commands."""
+    """Approve all requests except shell commands.
+
+    mkdir (with optional -p / -v flags) is allowed so agents can create
+    output directories. All other shell commands are denied.
+    """
     if request.kind == PermissionRequestKind.SHELL:
         cmd = request.full_command_text or ""
+        if _ALLOWED_SHELL.match(cmd):
+            return PermissionRequestResult(kind="approve-once")
         print(f"[BLOCKED] shell: {cmd[:80]}")
         return PermissionRequestResult(kind="deny")
     return PermissionRequestResult(kind="approve-once")
