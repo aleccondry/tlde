@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+
+# Command for shellcheck, which runs as linting when packaging the sdk
+# shellcheck source=/dev/null
+source "/home/workshop/venv/bin/activate"
+
+# Install renode dependencies
+uv pip install -r /opt/renode/tests/requirements.txt paho-mqtt
+
+# Activation of the Python virtual environment
+cat <<EOF >>~/.profile
+export PATH="/opt/esp-qemu/bin:${PATH}"
+source /home/workshop/venv/bin/activate
+EOF

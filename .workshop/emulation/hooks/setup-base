@@ -1,0 +1,57 @@
+#!/usr/bin/bash
+
+export RENODE_VERSION=1.16.1
+export ESP_QEMU_VERSION=esp-develop-9.2.2-20250817
+
+apt-get update
+eatmydata -- apt-get upgrade
+# Dependencies for emulation
+eatmydata -- apt-get install \
+  curl \
+  wget \
+  build-essential \
+  gcc \
+  git \
+  ninja-build \
+  pkg-config \
+  meson \
+  flex \
+  bison \
+  gettext \
+  python3 \
+  python3-dev \
+  iputils-ping \
+  iproute2 \
+  net-tools \
+  iptables \
+  tcpdump \
+  mosquitto \
+  mosquitto-clients \
+  libglib2.0-dev \
+  libfdt-dev \
+  libpixman-1-dev \
+  zlib1g-dev \
+  libslirp-dev \
+  libssl-dev \
+  libgcrypt20-dev \
+  libncurses-dev
+
+# Install renode
+wget -P /tmp https://github.com/renode/renode/releases/download/v1.16.1/renode_${RENODE_VERSION}_amd64.deb
+apt-get install -y /tmp/renode_${RENODE_VERSION}_amd64.deb
+rm /tmp/renode_${RENODE_VERSION}_amd64.deb
+
+# Build and install Espressif's QEMU fork
+git clone --depth 1 --branch ${ESP_QEMU_VERSION} https://github.com/espressif/qemu.git /tmp/qemu-esp
+mkdir -p /tmp/qemu-esp/build
+cd /tmp/qemu-esp/build
+../configure --prefix=/opt/esp-qemu --target-list="xtensa-softmmu,riscv32-softmmu" --enable-slirp --disable-docs --disable-werror
+make -j$(nproc)
+make install
+rm -rf /tmp/qemu-esp
+
+# Setup directory for venv plug
+sudo -u workshop --login mkdir -p /home/workshop/venv
+
+# Perform network setup for mosquitto
+source $SDK/sdk/hooks/aux/init_container.sh
