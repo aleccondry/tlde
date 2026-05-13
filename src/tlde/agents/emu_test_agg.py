@@ -21,7 +21,6 @@ class EmuTestAgg(AgentConfig):
             skills=[
                 "renode-robot-test-generation",
                 "renode-feedback-schema",
-                "zephyr-build-system",
             ],
         )
         defaults.update(overrides)
