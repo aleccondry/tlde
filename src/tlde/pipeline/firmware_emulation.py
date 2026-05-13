@@ -15,7 +15,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from tlde.agent import run_agent
+from tlde.agent import run_agent, _approve_all_handler
 from tlde.agents import AGENTS
 from tlde.observability import PipelineTrace
 
@@ -85,7 +85,10 @@ async def phase_manager(
     print("-" * 60)
 
     prompt = build_manager_prompt(user_prompt)
-    response = await run_agent(manager, prompt, pipeline_trace=trace)
+    response = await run_agent(
+        manager, prompt, pipeline_trace=trace,
+        permission_handler=_approve_all_handler,
+    )
 
     work_plan = parse_work_plan(response)
     target = work_plan["target"]
