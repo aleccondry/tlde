@@ -11,6 +11,9 @@ A collection of LLM-agent skills for generating Renode emulation artifacts. Thes
 | [Robot Test Generation](renode-robot-test-generation.md) | `renode-robot-test-generation.md` | Creating automated firmware tests with Robot Framework |
 | [Peripheral Model Generation](renode-peripheral-model-generation.md) | `renode-peripheral-model-generation.md` | Implementing C# peripheral models (registers, IRQs, base patterns) |
 | [Peripheral Model Patterns](renode-peripheral-model-patterns.md) | `renode-peripheral-model-patterns.md` | Advanced peripheral templates (GPIO, SPI, DMA, Watchdog, sensors) |
+| [Debugging](renode-debugging.md) | `renode-debugging.md` | Diagnosing emulation failures, unmapped accesses, boot hangs, IRQ issues |
+| [Zephyr DTS Analysis](zephyr-dts-analysis.md) | `zephyr-dts-analysis.md` | Extracting peripheral configuration from Zephyr build artifacts |
+| [MCUboot Emulation](mcuboot-emulation.md) | `mcuboot-emulation.md` | Setting up secure bootloader emulation, partition layouts, firmware updates |
 
 ## Typical Workflow
 
@@ -33,6 +36,9 @@ Include the relevant skill file(s) as context when prompting an LLM to generate 
 - **"Write a script to boot Zephyr on nRF52840 with BLE"** → use `renode-resc-generation.md`
 - **"Generate a Robot test that verifies UART output"** → use `renode-robot-test-generation.md`
 - **"Model a custom SPI peripheral with interrupt support"** → use `renode-peripheral-model-generation.md` + `renode-peripheral-model-patterns.md`
+- **"Debug why the firmware hangs at boot"** → use `renode-debugging.md`
+- **"Extract peripheral addresses from a Zephyr build"** → use `zephyr-dts-analysis.md`
+- **"Set up MCUboot with A/B slots for firmware updates"** → use `mcuboot-emulation.md`
 
 ### Combining Skills
 
@@ -50,6 +56,9 @@ Need to define hardware addresses and IRQ wiring?  → REPL skill
 Need to load firmware and start emulation?          → RESC skill
 Need to verify firmware behavior automatically?     → Robot Test skill
 Need to implement register-level peripheral logic?  → Peripheral Model skill(s)
+Need to diagnose boot hangs or unmapped accesses?   → Debugging skill
+Need to extract peripheral info from Zephyr build?  → Zephyr DTS Analysis skill
+Need to emulate MCUboot-based firmware?             → MCUboot Emulation skill
 ```
 
 ## Reference Material
