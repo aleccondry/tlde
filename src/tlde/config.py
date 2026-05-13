@@ -7,11 +7,14 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
 
 
 def load_prompt(name: str) -> str:
-    """Load a system prompt from prompts/<name>.txt."""
-    path = PROMPTS_DIR / f"{name}.txt"
-    if not path.exists():
-        raise FileNotFoundError(f"No prompt file found at {path}")
-    return path.read_text().strip()
+    """Load a system prompt from prompts/<name>.txt (or .md fallback)."""
+    for ext in (".txt", ".md"):
+        path = PROMPTS_DIR / f"{name}{ext}"
+        if path.exists():
+            return path.read_text().strip()
+    raise FileNotFoundError(
+        f"No prompt file found at {PROMPTS_DIR / name}.txt or .md"
+    )
 
 
 @dataclass
