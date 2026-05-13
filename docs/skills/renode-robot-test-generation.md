@@ -138,7 +138,9 @@ ${line}=    Wait For Next Line On Uart
 # Verify UART is silent
 Test If Uart Is Idle    5    # 5 second silence check
 
-# Pause emulation during wait (prevents timeout races)
+# Pause emulation during wait (prevents timeout races in timing-sensitive tests)
+# When pauseEmulation=true, the emulation is paused while waiting for UART output,
+# which prevents race conditions where the emulation runs ahead of the test assertions
 Wait For Line On Uart    Ready    pauseEmulation=true
 ```
 

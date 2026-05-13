@@ -59,8 +59,9 @@ These skills were derived from the upstream Renode sources and documentation:
 | Resource | Contents |
 |----------|----------|
 | [Renode repository](https://github.com/renode/renode) | Main Renode repository (platforms, scripts, tests) |
-| [Renode documentation](https://renode.readthedocs.io/) | Official Renode documentation |
+| [Renode documentation](https://renode.readthedocs.io/en/latest/) | Official Renode documentation |
 | [Renode infrastructure source](https://github.com/renode/renode-infrastructure) | Core C# infrastructure (peripheral base classes, register framework) |
+| [peakrdl-renode tool](https://github.com/renode/renode/tree/master/tools/PeakRDL-renode) | Automatic peripheral stub generation from SystemRDL |
 
 ## Quick Reference
 

@@ -380,6 +380,9 @@ namespace Antmicro.Renode.Peripherals.DMA
                     });
 
             // Per-channel registers
+            // Note: We use dynamic register offsets by casting calculated offsets to the Registers enum.
+            // This is a pattern for peripherals with repeated register groups (e.g., per-channel DMA registers).
+            // The enum values represent relative offsets from peripheral base.
             for(int ch = 0; ch < numberOfChannels; ch++)
             {
                 var channelIdx = ch;

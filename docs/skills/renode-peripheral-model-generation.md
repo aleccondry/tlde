@@ -8,6 +8,19 @@ Generate C# peripheral models for the Renode emulation framework. These models i
 
 Renode peripheral models are C# classes in the `Antmicro.Renode.Peripherals` namespace. They implement bus access interfaces, define register layouts with bit-level precision, handle interrupts via GPIO signals, and model peripheral-specific logic (FIFOs, timers, state machines). The Register Framework provides a declarative, fluent API for defining registers and their fields.
 
+For simpler peripherals or rapid prototyping, Renode also supports Python peripherals defined directly in REPL files:
+
+```repl
+myPeripheral: PythonPeripheral @ sysbus 0x1000
+    init: |
+        def read(offset, size):
+            return 0
+        def write(offset, value, size):
+            pass
+```
+
+Python peripherals are useful for trivial logic but C# models are required for advanced peripheral behavior and interconnect.
+
 ## Architecture Overview
 
 ```
@@ -74,6 +87,12 @@ Placed on class to allow bus width translation (e.g., byte access to double-word
 [AllowedTranslations(AllowedTranslation.ByteToDoubleWord)]
 [AllowedTranslations(AllowedTranslation.ByteToDoubleWord | AllowedTranslation.WordToDoubleWord)]
 ```
+
+Note: Automatic translation might generate more accesses on the bus (e.g., 4 byte reads per one double word read). This might have unintended side effects for some registers (e.g., automatically incrementing FIFO data register, read-to-clear behavior). Verify that automatic translation is safe for your peripheral.
+
+## Memory Types Performance Note
+
+When defining memory in REPL files, prefer `Memory.MappedMemory` over `Memory.ArrayMemory` for performance reasons. `MappedMemory` handles operations at the C level, while `ArrayMemory` processes everything at C# level, which can cause significant performance degradation. Only use `ArrayMemory` when you need to intercept all memory operations at C# level.
 
 ## Register Framework
 
@@ -777,3 +796,18 @@ When generating a peripheral model:
 ## Output Format
 
 Generate complete, compilable C# files with proper copyright header, using statements, namespace, and class definition. Follow the Renode coding style (4-space indentation, Allman braces, PascalCase methods/properties, camelCase locals/parameters).
+
+## Automatic Stub Generation (peakrdl-renode)
+
+For large peripherals with many registers, Renode provides the `peakrdl-renode` tool to automatically generate register scaffolding from SystemRDL files:
+
+```bash
+# Install the tool
+pip install peakrdl
+pip install git+https://github.com/renode/renode/#subdirectory=tools/PeakRDL-renode
+
+# Generate scaffolding
+peakrdl renode -n MyPeripheral -N Miscellaneous -o MyPeripheral_generated.cs peripheral.rdl
+```
+
+This generates a `partial class` with all register definitions. Create a separate `MyPeripheral.cs` file to implement behavioral logic (callbacks, state machines). This approach is especially useful during hardware development when register layouts are not yet stable.
