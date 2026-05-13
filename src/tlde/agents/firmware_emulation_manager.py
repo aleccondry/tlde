@@ -18,6 +18,7 @@ class FirmwareEmulationManager(AgentConfig):
                     "tools": ["*"],
                 },
             },
+            skills=["renode-peripheral-catalogue"],
         )
         defaults.update(overrides)
         super().__init__(**defaults)

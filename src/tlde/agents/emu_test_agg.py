@@ -18,7 +18,11 @@ class EmuTestAgg(AgentConfig):
                 "models, and reports whether any unexpected failures occurred."
             ),
             model="claude-sonnet-4.6",
-            skills=["renode-repl-reference", "renode-feedback-schema"],
+            skills=[
+                "renode-robot-test-generation",
+                "renode-feedback-schema",
+                "zephyr-build-system",
+            ],
         )
         defaults.update(overrides)
         super().__init__(**defaults)
