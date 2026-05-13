@@ -61,6 +61,11 @@ _permission_handler = _make_shell_handler(allow_build=False)
 _test_permission_handler = _make_shell_handler(allow_build=True)
 
 
+def _approve_all_handler(request, invocation):
+    """Approve every permission request, including shell commands."""
+    return PermissionRequestResult(kind="approve-once")
+
+
 async def run_agent(
     config: AgentConfig,
     prompt: str,
